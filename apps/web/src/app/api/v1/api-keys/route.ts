@@ -15,7 +15,6 @@ export async function POST(req: NextRequest) {
   const repo = getRepository();
   const ws = await repo.ensureSeedWorkspace();
   const environment = body.environment === "live" ? "live" : "test";
-  const prefix = `aos_${environment}_${shortId("", 8)}`;
 
   // Generate a full key (in production, hash and store only the hash)
   const fullKey = `aos_${environment}_${shortId("", 16)}`;

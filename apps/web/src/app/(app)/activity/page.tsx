@@ -1,16 +1,15 @@
 import { Panel } from "@/components/ui";
 import { ActivityFeed } from "@/components/activity-feed";
 
-export default function ActivityPage({
+export default async function ActivityPage({
   searchParams,
 }: {
   searchParams: Promise<{ mission?: string; agent?: string; tool?: string }>;
 }) {
-  const params = {
-    mission: undefined as string | undefined,
-    agent: undefined as string | undefined,
-    tool: undefined as string | undefined,
-  };
+  // Was declaring this prop and then ignoring it, hardcoding every filter to
+  // undefined — a real bug, not just unused-var noise: linking to
+  // /activity?mission=M123 silently did nothing.
+  const params = await searchParams;
 
   return (
     <div className="min-h-screen">

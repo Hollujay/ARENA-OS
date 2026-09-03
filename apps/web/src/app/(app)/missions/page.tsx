@@ -1,5 +1,5 @@
 import { getRepository } from "@db/index";
-import { Badge, StatusDot, Panel, PanelHeader } from "@/components/ui";
+import { Badge, StatusDot, Panel } from "@/components/ui";
 import Link from "next/link";
 import { MissionsFilter } from "@/components/missions-filter";
 

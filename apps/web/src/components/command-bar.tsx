@@ -22,7 +22,7 @@ export function CommandBar({ projects }: Props) {
     if (!text.trim() || running) return;
     setRunning(true);
     setError(null);
-    const spendMatch = text.match(/(\d+(?:\.\d+)?)\s*XLM/i);
+    const spendMatch = text.match(/(\d+(?:\.\d+)?)\s*NGN/i);
     const allowPaidApi = !!spendMatch;
     const budgetXlm = spendMatch ? Number(spendMatch[1]) : 5;
     try {

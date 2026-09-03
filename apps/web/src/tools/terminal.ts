@@ -8,8 +8,12 @@ import type { ToolName } from "@domain/index";
 
 const ALLOWED = ["test", "build", "lint", "git status", "git diff", "install"];
 
+interface TerminalToolInput {
+  command?: string;
+}
+
 export async function runTerminalTool(tool: ToolName, input: Json): Promise<{ ok: boolean; output?: Json; error?: string }> {
-  const i = input as any;
+  const i = input as unknown as TerminalToolInput;
   const command: string = i?.command ?? "";
   const base = command.trim().split(" ")[0];
   const allowed = ALLOWED.some((a) => command.startsWith(a)) || ALLOWED.includes(base);

@@ -59,7 +59,7 @@ export default async function CommandCenter() {
           />
           <MetricCard
             label="TODAY'S SPEND"
-            value={`${todayPayments.toFixed(2)} XLM`}
+            value={`${todayPayments.toFixed(2)} NGN`}
             sub={`${payments.length} txns`}
             tone="green"
           />
@@ -172,9 +172,9 @@ export default async function CommandCenter() {
                   { name: "CODE", desc: "implementation · refactoring", active: true },
                   { name: "QA", desc: "testing · verification", active: false },
                   { name: "DEPLOYMENT", desc: "railway · render · vercel", active: false },
-                  { name: "STELLAR", desc: "payments · receipts", active: false },
+                  { name: "STELLAR", desc: "receipt anchoring", active: false },
                   { name: "PLANNER", desc: "conversation · planning", active: false },
-                ].map((agent, i) => (
+                ].map((agent) => (
                   <div key={agent.name} className="flex items-center gap-2">
                     <div className="w-4 flex justify-center">
                       <div className="w-px h-3 bg-arena-border" />

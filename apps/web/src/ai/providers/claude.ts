@@ -2,6 +2,10 @@ import type { ModelRequest, ModelResponse } from "@domain/index";
 import type { ModelAdapter } from "./types";
 import { pickModelForTaskKind } from "./types";
 
+interface ClaudeResponse {
+  content?: Array<{ text?: string }>;
+}
+
 // Anthropic Claude adapter. Key is read server-side only.
 export class ClaudeAdapter implements ModelAdapter {
   provider = "claude" as const;
@@ -29,8 +33,8 @@ export class ClaudeAdapter implements ModelAdapter {
       }),
     });
     if (!res.ok) throw new Error(`claude ${res.status}: ${await res.text()}`);
-    const data = await res.json();
-    const text = data.content?.map((c: any) => c.text).join("") ?? "";
+    const data = (await res.json()) as ClaudeResponse;
+    const text = data.content?.map((c) => c.text ?? "").join("") ?? "";
     let json: ModelResponse["json"];
     if (req.structured) {
       try {

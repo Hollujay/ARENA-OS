@@ -6,8 +6,12 @@ import type { ToolName } from "@domain/index";
 // returns a clearly-labeled mock preview URL.
 const TOKEN = process.env.RAILWAY_TOKEN || "";
 
+interface RailwayToolInput {
+  project?: string;
+}
+
 export async function runRailwayTool(tool: ToolName, input: Json): Promise<{ ok: boolean; output?: Json; error?: string }> {
-  const i = input as any;
+  const i = input as unknown as RailwayToolInput;
   if (!TOKEN) {
     return {
       ok: true,

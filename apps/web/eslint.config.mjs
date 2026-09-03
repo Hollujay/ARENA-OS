@@ -15,6 +15,11 @@ const eslintConfig = [
     rules: {
       "@next/next/no-img-element": "warn",
       "no-console": ["warn", { allow: ["warn", "error"] }],
+      // The codebase already uses a leading-underscore convention for
+      // intentionally-unused params (_ctx, _tool, _stagesOut, ...) —
+      // this just tells the rule to actually respect it, rather than
+      // flagging every one of them as if it were dead code.
+      "@typescript-eslint/no-unused-vars": ["warn", { argsIgnorePattern: "^_", varsIgnorePattern: "^_" }],
     },
   },
 ];

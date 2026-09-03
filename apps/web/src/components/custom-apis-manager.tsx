@@ -13,7 +13,7 @@ interface CustomApi {
   status: string;
   createdAt: string;
   // Enriched fields
-  endpoints?: any[];
+  endpoints?: unknown[];
   endpointCount?: number;
   assignedAgent?: string | null;
   assignedAgentId?: string | null;
@@ -48,7 +48,7 @@ interface Props {
   workspaceId: string;
 }
 
-export function CustomApisManager({ apis: initialApis, agentSlots: initialSlots, assignments: initialAssignments, workspaceId }: Props) {
+export function CustomApisManager({ apis: initialApis, agentSlots: initialSlots, assignments: initialAssignments, workspaceId: _workspaceId }: Props) {
   const router = useRouter();
   const [apis, setApis] = useState(initialApis);
   const [slots, setSlots] = useState(initialSlots);
@@ -56,8 +56,6 @@ export function CustomApisManager({ apis: initialApis, agentSlots: initialSlots,
   const [view, setView] = useState<"apis" | "agents">("apis");
   const [showAddApi, setShowAddApi] = useState(false);
   const [showCreateAgent, setShowCreateAgent] = useState(false);
-  const [selectedApi, setSelectedApi] = useState<CustomApi | null>(null);
-  const [editingApi, setEditingApi] = useState<CustomApi | null>(null);
 
   // Add API form state
   const [newApi, setNewApi] = useState({
@@ -147,7 +145,6 @@ export function CustomApisManager({ apis: initialApis, agentSlots: initialSlots,
     if (res.ok) {
       setApis(apis.filter((a) => a.id !== apiId));
       setAssignments(assignments.filter((a) => a.customApiId !== apiId));
-      setSelectedApi(null);
       router.refresh();
     }
   }
@@ -222,11 +219,31 @@ export function CustomApisManager({ apis: initialApis, agentSlots: initialSlots,
                     <Badge tone="violet">{api.assignedAgent}</Badge>
                   )}
                   <Badge tone={api.status === "active" ? "green" : "default"}>{api.status}</Badge>
-                  <button
-                    onClick={() => setSelectedApi(api)}
-                    className="text-xs text-arena-blue hover:underline"
+                  <select
+                    value={api.assignedAgentId ?? ""}
+                    onChange={(e) => reassignApi(api.id, e.target.value)}
+                    className="text-xs bg-transparent border border-arena-border rounded px-1 py-0.5 text-arena-muted"
                   >
-                    Edit
+                    <option value="">Unassigned</option>
+                    {slots.map((slot) => (
+                      <option key={slot.id} value={slot.id}>
+                        {slot.name}
+                      </option>
+                    ))}
+                  </select>
+                  <button
+                    onClick={() => toggleApiStatus(api)}
+                    className="text-xs text-arena-muted hover:underline"
+                  >
+                    {api.status === "active" ? "Disable" : "Enable"}
+                  </button>
+                  <button
+                    onClick={() => {
+                      if (window.confirm(`Delete "${api.name}"? This removes its agent assignments too.`)) deleteApi(api.id);
+                    }}
+                    className="text-xs text-arena-red hover:underline"
+                  >
+                    Delete
                   </button>
                 </div>
               </div>
@@ -274,7 +291,7 @@ export function CustomApisManager({ apis: initialApis, agentSlots: initialSlots,
                   <div className="flex items-center gap-3 mt-1 text-[10px] text-arena-muted">
                     <span>role: {slot.role}</span>
                     <span>model: {slot.modelPreference}</span>
-                    <span>budget: {slot.budget} XLM</span>
+                    <span>budget: {slot.budget} NGN</span>
                   </div>
                 </div>
                 <div className="flex items-center gap-2">
@@ -442,7 +459,7 @@ export function CustomApisManager({ apis: initialApis, agentSlots: initialSlots,
                   </select>
                 </div>
                 <div>
-                  <label className="text-[11px] uppercase tracking-wider text-arena-muted">Budget (XLM)</label>
+                  <label className="text-[11px] uppercase tracking-wider text-arena-muted">Budget (NGN)</label>
                   <input
                     type="number"
                     value={newAgent.budget}

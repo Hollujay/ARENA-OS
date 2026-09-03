@@ -16,7 +16,7 @@ interface ExhibitionAdminProps {
   workspaceId: string;
 }
 
-export function ExhibitionAdmin({ workspaceId }: ExhibitionAdminProps) {
+export function ExhibitionAdmin({ workspaceId: _workspaceId }: ExhibitionAdminProps) {
   const [projects, setProjects] = useState<
     Array<{
       id: string;

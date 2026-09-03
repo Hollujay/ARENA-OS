@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getSession } from "@security/session";
-import { defaultPolicy, evaluatePayment, settlePayment } from "@stellar/x402";
-import { publicKey } from "@stellar/wallet";
+import { defaultPolicy, evaluatePayment, settlePayment } from "@bmoni/x402";
+import { operatorAddress } from "@bmoni/wallet";
 import { getRepository } from "@db/index";
 import { shortId, nowIso } from "@core/ids";
 import type { Payment } from "@domain/index";
@@ -16,7 +16,7 @@ export async function POST(req: NextRequest) {
   const amount = Number(body.amountXlm || 0);
   const decision = evaluatePayment(policy, {
     service: String(body.service || ""),
-    recipient: String(body.recipient || "GRECIPENT"),
+    recipient: String(body.recipient || process.env.ARENA_PAYMENT_DEMO_RECIPIENT || "0x000000000000000000000000000000000000dEaD"),
     amountXlm: amount,
     missionBudgetRemainingXlm: body.budgetRemainingXlm,
   });
@@ -38,10 +38,10 @@ export async function POST(req: NextRequest) {
 
   const settled = await settlePayment({
     service: String(body.service || ""),
-    recipient: String(body.recipient || "GRECIPENT"),
+    recipient: String(body.recipient || process.env.ARENA_PAYMENT_DEMO_RECIPIENT || "0x000000000000000000000000000000000000dEaD"),
     amountXlm: amount,
     network: policy.network,
-    wallet: publicKey(),
+    wallet: operatorAddress(),
   });
   const payment: Payment = {
     id: shortId("PAY"),
@@ -51,8 +51,8 @@ export async function POST(req: NextRequest) {
     amountXlm: amount,
     asset: policy.asset,
     network: policy.network,
-    wallet: publicKey(),
-    recipient: String(body.recipient || "GRECIPENT"),
+    wallet: operatorAddress(),
+    recipient: String(body.recipient || process.env.ARENA_PAYMENT_DEMO_RECIPIENT || "0x000000000000000000000000000000000000dEaD"),
     status: "settled",
     txHash: settled.txHash,
     createdAt: nowIso(),

@@ -8,7 +8,6 @@ export default async function StellarPage() {
   const repo = getRepository();
   const wallet = await walletState();
   const txs = await repo.listStellarTx();
-  const payments = await repo.listPayments();
 
   return (
     <div className="min-h-screen">
@@ -16,7 +15,7 @@ export default async function StellarPage() {
         <div>
           <span className="arena-label">STELLAR</span>
           <p className="text-[11px] text-arena-secondary mt-0.5">
-            Web3 layer · wallet, receipt anchoring, x402 settlement
+            Receipt anchoring for missions. Payment settlement moved to BMONI — see /payments.
           </p>
         </div>
 

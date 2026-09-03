@@ -1,13 +1,14 @@
-import type { Mission, MissionStage, Payment } from "@domain/index";
+import type { Mission, MissionStage, Payment, AuditActor, AgentRole } from "@domain/index";
 import { newMission } from "@domain/index";
+import type { Json } from "@core/types";
 import { getRepository } from "@db/index";
 import { getModelGateway } from "@ai/model-gateway";
 import { getToolGateway } from "@tools/gateway";
 import { capabilitiesFor } from "@security/permissions";
 import { runAgent, type AgentContext } from "@agents/runtime";
 import { verify } from "./verifier";
-import { defaultPolicy, evaluatePayment, settlePayment } from "@stellar/x402";
-import { publicKey } from "@stellar/wallet";
+import { defaultPolicy, evaluatePayment, settlePayment } from "@bmoni/x402";
+import { operatorAddress } from "@bmoni/wallet";
 import { shortId, nowIso } from "@core/ids";
 
 const STAGES: MissionStage[] = [
@@ -21,6 +22,12 @@ const STAGES: MissionStage[] = [
   "stellar",
 ];
 
+// Placeholder recipient for the demo payment flow, when the pipeline hasn't
+// been given a real one. A valid-but-inert 0x address (EVM burn address),
+// matching BMONI's address format now that settlement runs through them —
+// the old Stellar-style "GRECIPENT" placeholder isn't a valid recipient here.
+const DEMO_RECIPIENT = process.env.ARENA_PAYMENT_DEMO_RECIPIENT || "0x000000000000000000000000000000000000dEaD";
+
 export interface CreateMissionInput {
   title: string;
   description: string;
@@ -31,20 +38,38 @@ export interface CreateMissionInput {
   paidAmountXlm?: number;
 }
 
+interface PendingApprovalPayment {
+  denied?: false;
+  service: string;
+  purpose: string;
+  amountXlm: number;
+  network: "testnet" | "mainnet";
+  missionId: string;
+  remainingBudget?: number;
+  reason: string;
+}
+
+interface DeniedPayment {
+  denied: true;
+  reason: string;
+}
+
+type PendingPayment = PendingApprovalPayment | DeniedPayment;
+
 export interface MissionReport {
   missionId: string;
   status: Mission["status"];
   stages: { stage: MissionStage; summary: string; status: string }[];
   verification?: { status: string; checks: { name: string; pass: boolean; detail: string }[] };
-  pendingPayment?: any;
+  pendingPayment?: PendingPayment;
 }
 
 async function ctxFor(mission: Mission, role?: string): Promise<AgentContext> {
   const repo = getRepository();
   const model = getModelGateway();
   const tools = getToolGateway();
-  const emit = async (actor: any, action: string, detail?: unknown) => {
-    await repo.appendAudit({ id: shortId("AE"), at: nowIso(), actor, action, missionId: mission.id, detail: detail as any });
+  const emit = async (actor: AuditActor, action: string, detail?: unknown) => {
+    await repo.appendAudit({ id: shortId("AE"), at: nowIso(), actor, action, missionId: mission.id, detail: detail as Json | undefined });
   };
 
   // Look up agent slot for capabilities
@@ -55,7 +80,7 @@ async function ctxFor(mission: Mission, role?: string): Promise<AgentContext> {
     const slots = await repo.listAgentSlots();
     agentSlot = slots.find((s) => s.id === `slot_${role}` || s.role === role);
     if (agentSlot) {
-      capabilities = agentSlot.defaultCapabilities || capabilitiesFor(role as any);
+      capabilities = agentSlot.defaultCapabilities || capabilitiesFor(role as AgentRole);
     }
   }
 
@@ -120,7 +145,7 @@ export async function runMission(missionId: string): Promise<MissionReport> {
       const ctx = await ctxFor(mission, "code");
       summary = await runPaymentStage(mission, ctx, stagesOut);
       // payment stage may pause; if it returned a pending payment, stop.
-      const pending = (mission.pendingPayment as any) || null;
+      const pending = mission.pendingPayment as PendingPayment | null | undefined;
       if (pending) {
         mission.status = "awaiting_approval";
         mission.pipelineStage = "payment";
@@ -147,7 +172,7 @@ export async function runMission(missionId: string): Promise<MissionReport> {
       mission.verificationStatus = v.status;
       summary = `Verification ${v.status}`;
       stagesOut.push({ stage, summary, status: v.status });
-      await repo.appendAudit({ id: shortId("AE"), at: nowIso(), actor: "system", action: "verification", missionId: mission.id, detail: v as any });
+      await repo.appendAudit({ id: shortId("AE"), at: nowIso(), actor: "system", action: "verification", missionId: mission.id, detail: v as unknown as Json });
       if (v.status === "failed") {
         mission.status = "failed";
         break;
@@ -177,15 +202,15 @@ export async function runMission(missionId: string): Promise<MissionReport> {
 }
 
 async function runPaymentStage(mission: Mission, ctx: AgentContext, _stagesOut: MissionReport["stages"]): Promise<string> {
-  const allowPaid = (mission as any).allowPaidApi;
+  const allowPaid = mission.allowPaidApi;
   if (!allowPaid) return "no paid API requested";
-  const service = (mission as any).paidService || "Repo Analyzer API";
-  const amount = Number((mission as any).paidAmountXlm || 0.25);
+  const service = mission.paidService || "Repo Analyzer API";
+  const amount = Number(mission.paidAmountXlm || 0.25);
   const policy = defaultPolicy();
 
   const decision = evaluatePayment(policy, {
     service,
-    recipient: "GRECIPENT",
+    recipient: DEMO_RECIPIENT,
     amountXlm: amount,
     missionBudgetRemainingXlm: mission.budgetXlm,
   });
@@ -193,10 +218,10 @@ async function runPaymentStage(mission: Mission, ctx: AgentContext, _stagesOut: 
   if (decision.decision === "approved") {
     const settled = await settlePayment({
       service,
-      recipient: "GRECIPENT",
+      recipient: DEMO_RECIPIENT,
       amountXlm: amount,
       network: policy.network,
-      wallet: publicKey(),
+      wallet: operatorAddress(),
     });
     const payment: Payment = {
       id: shortId("PAY"),
@@ -206,8 +231,8 @@ async function runPaymentStage(mission: Mission, ctx: AgentContext, _stagesOut: 
       amountXlm: amount,
       asset: policy.asset,
       network: policy.network,
-      wallet: publicKey(),
-      recipient: "GRECIPENT",
+      wallet: operatorAddress(),
+      recipient: DEMO_RECIPIENT,
       status: "settled",
       txHash: settled.txHash,
       receiptHash: mission.receiptHash,
@@ -216,8 +241,8 @@ async function runPaymentStage(mission: Mission, ctx: AgentContext, _stagesOut: 
     };
     await ctx.repo.savePayment(payment);
     mission.paymentsXlm += amount;
-    await ctx.repo.appendAudit({ id: shortId("AE"), at: nowIso(), actor: "stellar", action: "payment.settled", missionId: mission.id, detail: payment as any });
-    return `Payment settled: ${amount} XLM to ${service}`;
+    await ctx.repo.appendAudit({ id: shortId("AE"), at: nowIso(), actor: "system", action: "payment.settled", missionId: mission.id, detail: payment as unknown as Json });
+    return `Payment settled: ${amount} NGN to ${service}`;
   }
 
   if (decision.decision === "needs_approval") {
@@ -227,13 +252,13 @@ async function runPaymentStage(mission: Mission, ctx: AgentContext, _stagesOut: 
       amountXlm: amount,
       network: policy.network,
       missionId: mission.id,
-      remainingBudget: mission.budgetXlm as any,
+      remainingBudget: mission.budgetXlm ?? 0,
       reason: decision.reason,
-    };
+    } satisfies PendingApprovalPayment;
     return "payment requires approval";
   }
 
-  mission.pendingPayment = { denied: true, reason: decision.reason };
+  mission.pendingPayment = { denied: true, reason: decision.reason } satisfies DeniedPayment;
   return `payment denied: ${decision.reason}`;
 }
 
@@ -242,17 +267,16 @@ export async function approvePayment(missionId: string): Promise<MissionReport> 
   const repo = getRepository();
   const mission = await repo.getMission(missionId);
   if (!mission) throw new Error("mission not found");
-  const pending = mission.pendingPayment as any;
+  const pending = mission.pendingPayment as PendingPayment | null | undefined;
   if (!pending || pending.denied) throw new Error("no pending payment");
   const policy = defaultPolicy();
-  const ctx = await ctxFor(mission);
 
   const settled = await settlePayment({
     service: pending.service,
-    recipient: "GRECIPENT",
+    recipient: DEMO_RECIPIENT,
     amountXlm: pending.amountXlm,
     network: pending.network,
-    wallet: publicKey(),
+    wallet: operatorAddress(),
   });
   const payment: Payment = {
     id: shortId("PAY"),
@@ -262,8 +286,8 @@ export async function approvePayment(missionId: string): Promise<MissionReport> 
     amountXlm: pending.amountXlm,
     asset: policy.asset,
     network: pending.network,
-    wallet: publicKey(),
-    recipient: "GRECIPENT",
+    wallet: operatorAddress(),
+    recipient: DEMO_RECIPIENT,
     status: "settled",
     txHash: settled.txHash,
     receiptHash: mission.receiptHash,
@@ -274,7 +298,7 @@ export async function approvePayment(missionId: string): Promise<MissionReport> 
   mission.paymentsXlm += pending.amountXlm;
   mission.pendingPayment = null;
   mission.approvedPayments = [...(mission.approvedPayments ?? []), pending.service];
-  await repo.appendAudit({ id: shortId("AE"), at: nowIso(), actor: "user", action: "payment.approved", missionId: mission.id, detail: payment as any });
+  await repo.appendAudit({ id: shortId("AE"), at: nowIso(), actor: "user", action: "payment.approved", missionId: mission.id, detail: payment as unknown as Json });
   await repo.saveMission(mission);
 
   return runMission(missionId);
@@ -284,7 +308,7 @@ function buildReport(
   mission: Mission,
   stages: MissionReport["stages"],
   verification?: { status: string; checks: { name: string; pass: boolean; detail: string }[] },
-  pendingPayment?: any,
+  pendingPayment?: PendingPayment,
 ): MissionReport {
   return {
     missionId: mission.id,

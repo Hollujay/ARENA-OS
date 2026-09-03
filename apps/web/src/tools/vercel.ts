@@ -11,7 +11,7 @@ function getConfig() {
   return { token, configured: !!token };
 }
 
-async function vercelFetch(path: string, opts?: { method?: string; body?: any }): Promise<any> {
+async function vercelFetch(path: string, opts?: { method?: string; body?: unknown }): Promise<unknown> {
   const { token, configured } = getConfig();
   if (!configured) throw new Error("vercel not configured — set VERCEL_TOKEN");
   const res = await fetch(`${API_BASE}${path}`, {
@@ -29,11 +29,53 @@ async function vercelFetch(path: string, opts?: { method?: string; body?: any })
   return res.json();
 }
 
+interface VercelDeploymentSummary {
+  id: string;
+  url: string;
+  state: string;
+  created: string;
+}
+interface VercelProject {
+  id: string;
+  name: string;
+  framework?: string;
+  latestDeployments?: VercelDeploymentSummary[];
+}
+interface VercelDeployment {
+  id: string;
+  name?: string;
+  readyState: string;
+  url: string;
+  inspectorUrl?: string;
+  created: string;
+  target?: string;
+}
+interface VercelEvent {
+  type: string;
+  payload?: { text?: string };
+  created: string;
+}
+interface VercelDomain {
+  name: string;
+  verified: boolean;
+  created: string;
+}
+interface VercelToolInput {
+  limit?: number;
+  deploymentId?: string;
+  deployment_id?: string;
+  name?: string;
+  project?: string;
+  gitSource?: unknown;
+  projectId?: string;
+  project_id?: string;
+}
+
 export async function runVercelTool(
   tool: ToolName,
   input: Json,
 ): Promise<{ ok: boolean; output?: Json; error?: string }> {
-  const i = input as any;
+  const i = input as unknown as VercelToolInput;
   const { configured } = getConfig();
 
   if (!configured) {
@@ -44,14 +86,14 @@ export async function runVercelTool(
     switch (tool) {
       case "vercel.list_projects": {
         const limit = Math.min(i.limit || 20, 100);
-        const data = await vercelFetch(`/v9/projects?limit=${limit}`);
+        const data = (await vercelFetch(`/v9/projects?limit=${limit}`)) as { projects?: VercelProject[] };
         return {
           ok: true,
           output: {
-            projects: (data.projects ?? []).map((p: any) => ({
+            projects: (data.projects ?? []).map((p) => ({
               id: p.id,
               name: p.name,
-              framework: p.framework,
+              framework: p.framework ?? null,
               latestDeployment: p.latestDeployments?.[0]
                 ? {
                     id: p.latestDeployments[0].id,
@@ -59,7 +101,7 @@ export async function runVercelTool(
                     state: p.latestDeployments[0].state,
                     createdAt: p.latestDeployments[0].created,
                   }
-                : undefined,
+                : null,
             })),
           },
         };
@@ -68,18 +110,18 @@ export async function runVercelTool(
       case "vercel.get_deployment_status": {
         const deployId = i.deploymentId || i.deployment_id;
         if (!deployId) return { ok: false, error: "missing deploymentId" };
-        const data = await vercelFetch(`/v13/deployments/${deployId}`);
+        const data = (await vercelFetch(`/v13/deployments/${deployId}`)) as VercelDeployment;
         return {
           ok: true,
           output: {
             id: data.id,
-            name: data.name,
+            name: data.name ?? null,
             state: data.readyState,
             url: data.url,
-            inspectorUrl: data.inspectorUrl,
+            inspectorUrl: data.inspectorUrl ?? null,
             createdAt: data.created,
             ready: data.readyState === "READY",
-            target: data.target,
+            target: data.target ?? null,
           },
         };
       }
@@ -87,16 +129,18 @@ export async function runVercelTool(
       case "vercel.get_logs": {
         const did = i.deploymentId || i.deployment_id;
         if (!did) return { ok: false, error: "missing deploymentId" };
-        const data = await vercelFetch(`/v2/deployments/${did}/events?limit=100`);
+        const data = (await vercelFetch(`/v2/deployments/${did}/events?limit=100`)) as VercelEvent[];
         return {
           ok: true,
           output: {
             deploymentId: did,
-            logs: (data ?? []).map((e: any) => ({
-              type: e.type,
-              text: e.payload?.text || "",
-              createdAt: e.created,
-            })).slice(0, 50),
+            logs: (data ?? [])
+              .map((e) => ({
+                type: e.type,
+                text: e.payload?.text || "",
+                createdAt: e.created,
+              }))
+              .slice(0, 50),
           },
         };
       }
@@ -104,14 +148,14 @@ export async function runVercelTool(
       case "vercel.deploy_preview": {
         const name = i.name || i.project;
         if (!name) return { ok: false, error: "missing name/project" };
-        const data = await vercelFetch("/v13/deployments", {
+        const data = (await vercelFetch("/v13/deployments", {
           method: "POST",
           body: {
             name,
             target: "preview",
             gitSource: i.gitSource || undefined,
           },
-        });
+        })) as VercelDeployment;
         return {
           ok: true,
           output: {
@@ -126,14 +170,14 @@ export async function runVercelTool(
       case "vercel.deploy_production": {
         const name = i.name || i.project;
         if (!name) return { ok: false, error: "missing name/project" };
-        const data = await vercelFetch("/v13/deployments", {
+        const data = (await vercelFetch("/v13/deployments", {
           method: "POST",
           body: {
             name,
             target: "production",
             gitSource: i.gitSource || undefined,
           },
-        });
+        })) as VercelDeployment;
         return {
           ok: true,
           output: {
@@ -148,11 +192,11 @@ export async function runVercelTool(
       case "vercel.get_domains": {
         const projectId = i.projectId || i.project_id || i.name;
         if (!projectId) return { ok: false, error: "missing projectId" };
-        const data = await vercelFetch(`/v9/projects/${projectId}/domains`);
+        const data = (await vercelFetch(`/v9/projects/${projectId}/domains`)) as { domains?: VercelDomain[] };
         return {
           ok: true,
           output: {
-            domains: (data.domains ?? []).map((d: any) => ({
+            domains: (data.domains ?? []).map((d) => ({
               name: d.name,
               verified: d.verified,
               createdAt: d.created,
@@ -172,7 +216,7 @@ export async function runVercelTool(
 // Test connection — lightweight read-only call
 export async function testVercelConnection(): Promise<{ ok: boolean; error?: string }> {
   try {
-    const data = await vercelFetch("/v2/user");
+    await vercelFetch("/v2/user");
     return { ok: true };
   } catch (e) {
     return { ok: false, error: (e as Error).message };

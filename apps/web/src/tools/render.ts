@@ -11,7 +11,7 @@ function getConfig() {
   return { apiKey, configured: !!apiKey };
 }
 
-async function renderFetch(path: string, opts?: { method?: string; body?: any }): Promise<any> {
+async function renderFetch(path: string, opts?: { method?: string; body?: unknown }): Promise<unknown> {
   const { apiKey, configured } = getConfig();
   if (!configured) throw new Error("render not configured — set RENDER_API_KEY");
   const res = await fetch(`${API_BASE}${path}`, {
@@ -30,11 +30,34 @@ async function renderFetch(path: string, opts?: { method?: string; body?: any })
   return res.json();
 }
 
+interface RenderService {
+  id: string;
+  name: string;
+  type: string;
+  status?: string;
+  url?: string;
+  created_at?: string;
+  service?: { status?: string; url?: string };
+  latest_deploy?: RenderDeploy;
+}
+interface RenderDeploy {
+  id: string;
+  status: string;
+  created_at?: string;
+  finished_at?: string;
+  commit?: { id: string };
+}
+interface RenderToolInput {
+  serviceId?: string;
+  service_id?: string;
+  limit?: number;
+}
+
 export async function runRenderTool(
   tool: ToolName,
   input: Json,
 ): Promise<{ ok: boolean; output?: Json; error?: string }> {
-  const i = input as any;
+  const i = input as unknown as RenderToolInput;
   const { configured } = getConfig();
 
   if (!configured) {
@@ -44,17 +67,18 @@ export async function runRenderTool(
   try {
     switch (tool) {
       case "render.list_projects": {
-        const data = await renderFetch("/services?type=service&limit=50");
+        const data = (await renderFetch("/services?type=service&limit=50")) as { items?: RenderService[] } | RenderService[];
+        const items = Array.isArray(data) ? data : (data.items ?? []);
         return {
           ok: true,
           output: {
-            projects: (data.items ?? data ?? []).map((s: any) => ({
+            projects: items.map((s) => ({
               id: s.id,
               name: s.name,
               type: s.type,
               status: s.service?.status ?? s.status ?? "unknown",
-              url: s.service?.url ?? s.url,
-              createdAt: s.created_at,
+              url: s.service?.url ?? s.url ?? null,
+              createdAt: s.created_at ?? null,
             })),
           },
         };
@@ -63,18 +87,18 @@ export async function runRenderTool(
       case "render.get_deployment_status": {
         const serviceId = i.serviceId || i.service_id;
         if (!serviceId) return { ok: false, error: "missing serviceId" };
-        const data = await renderFetch(`/services/${serviceId}`);
-        const latestDeploy = data.latest_deploy || {};
+        const data = (await renderFetch(`/services/${serviceId}`)) as RenderService;
+        const latestDeploy = data.latest_deploy;
         return {
           ok: true,
           output: {
             serviceId: data.id,
             name: data.name,
-            status: data.status,
-            deployStatus: latestDeploy.status || "none",
-            deployId: latestDeploy.id,
-            commitHash: latestDeploy.commit?.id,
-            finishedAt: latestDeploy.finished_at,
+            status: data.status ?? null,
+            deployStatus: latestDeploy?.status || "none",
+            deployId: latestDeploy?.id ?? null,
+            commitHash: latestDeploy?.commit?.id ?? null,
+            finishedAt: latestDeploy?.finished_at ?? null,
           },
         };
       }
@@ -96,16 +120,16 @@ export async function runRenderTool(
       case "render.deploy_preview": {
         const sid = i.serviceId || i.service_id;
         if (!sid) return { ok: false, error: "missing serviceId" };
-        const data = await renderFetch(`/services/${sid}/deploys`, {
+        const data = (await renderFetch(`/services/${sid}/deploys`, {
           method: "POST",
           body: { clear_cache: false },
-        });
+        })) as RenderDeploy;
         return {
           ok: true,
           output: {
             deployId: data.id,
             status: data.status,
-            triggeredAt: data.created_at,
+            triggeredAt: data.created_at ?? null,
           },
         };
       }
@@ -121,7 +145,7 @@ export async function runRenderTool(
 // Test connection — lightweight read-only call
 export async function testRenderConnection(): Promise<{ ok: boolean; error?: string }> {
   try {
-    const data = await renderFetch("/owners");
+    await renderFetch("/owners");
     return { ok: true };
   } catch (e) {
     return { ok: false, error: (e as Error).message };

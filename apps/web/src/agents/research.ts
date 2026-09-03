@@ -1,3 +1,4 @@
+import type { Json } from "@core/types";
 import type { AgentContext } from "./runtime";
 import { toolCtx } from "./runtime";
 
@@ -7,11 +8,10 @@ export async function research(ctx: AgentContext): Promise<string> {
   const task = ctx.mission.tasks.find((t) => t.type === "research");
   if (task) task.status = "running";
 
-  const issueRes = await ctx.tools.execute(
-    "github.read_issue",
-    { repository: ctx.mission.projectId ? undefined : "ARENA-AI-OS/ARENA-OS", issueNumber: 42 } as any,
-    toolCtx(ctx, "research" as any),
-  );
+  const readIssueInput: Record<string, Json> = { issueNumber: 42 };
+  if (!ctx.mission.projectId) readIssueInput.repository = "ARENA-AI-OS/ARENA-OS";
+
+  const issueRes = await ctx.tools.execute("github.read_issue", readIssueInput, toolCtx(ctx, "research"));
 
   const analysis = await ctx.model.research(
     `Research the problem described by this GitHub issue: ${JSON.stringify(issueRes.output ?? {})}`,
@@ -20,7 +20,7 @@ export async function research(ctx: AgentContext): Promise<string> {
 
   if (task) {
     task.status = "done";
-    task.result = { issue: issueRes.output, analysis: analysis.text } as any;
+    task.result = { issue: issueRes.output, analysis: analysis.text } as unknown as Json;
     task.updatedAt = new Date().toISOString();
   }
   ctx.mission.toolsUsed = Array.from(new Set([...ctx.mission.toolsUsed, "github.read_issue"]));

@@ -2,6 +2,10 @@ import type { ModelRequest, ModelResponse } from "@domain/index";
 import type { ModelAdapter } from "./types";
 import { pickModelForTaskKind } from "./types";
 
+interface GeminiResponse {
+  candidates?: Array<{ content?: { parts?: Array<{ text?: string }> } }>;
+}
+
 // Google Gemini adapter. Key is read server-side only.
 export class GeminiAdapter implements ModelAdapter {
   provider = "gemini" as const;
@@ -26,8 +30,8 @@ export class GeminiAdapter implements ModelAdapter {
       }),
     });
     if (!res.ok) throw new Error(`gemini ${res.status}: ${await res.text()}`);
-    const data = await res.json();
-    const text = data.candidates?.[0]?.content?.parts?.map((p: any) => p.text).join("") ?? "";
+    const data = (await res.json()) as GeminiResponse;
+    const text = data.candidates?.[0]?.content?.parts?.map((p) => p.text ?? "").join("") ?? "";
     let json: ModelResponse["json"];
     if (req.structured) {
       try {

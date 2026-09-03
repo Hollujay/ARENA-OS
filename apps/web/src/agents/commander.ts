@@ -76,9 +76,9 @@ Example format:
       jsonText = jsonMatch[0];
     }
 
-    const parsed = JSON.parse(jsonText);
+    const parsed = JSON.parse(jsonText) as { steps?: Array<{ title: string; description?: string }> };
     if (parsed.steps && Array.isArray(parsed.steps)) {
-      plannedSteps = parsed.steps.map((step: any, idx: number) => {
+      plannedSteps = parsed.steps.map((step) => {
         const type = inferTaskType(step.title + " " + (step.description || ""));
         return {
           type,

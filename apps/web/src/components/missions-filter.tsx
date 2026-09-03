@@ -26,7 +26,12 @@ const TABS = [
   { key: "failed", label: "Failed" },
 ];
 
-export function MissionsFilter({ activeFilter, counts }: Props) {
+// `counts` isn't rendered yet — the 10 tab keys here (lifecycle stages) don't
+// map 1:1 onto the 5 aggregate buckets the caller computes (all/active/
+// completed/failed/awaiting), so wiring per-tab counts needs a small design
+// decision (which tabs get a badge, how "active" splits across 5 stages)
+// rather than a mechanical fix. Flagged, not guessed at.
+export function MissionsFilter({ activeFilter, counts: _counts }: Props) {
   return (
     <div className="flex items-center gap-1 overflow-x-auto pb-1">
       {TABS.map((tab) => {

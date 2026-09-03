@@ -9,6 +9,7 @@
     "clean": "rm -rf dist"
   },
   "dependencies": {
+    "@arena-os/ai-core": "workspace:*",
     "@arena-os/security": "workspace:*"
   },
   "devDependencies": {

@@ -13,10 +13,28 @@ function isConfigured(): boolean {
   return !!(PROJECT_ID && (API_KEY || SERVICE_ACCOUNT));
 }
 
-async function firebaseFetch(
-  path: string,
-  opts?: { method?: string; body?: any },
-): Promise<any> {
+// Firestore's REST "value" wire format — a discriminated union by which
+// field is present, one of the few genuinely-any-shaped things here that
+// deserve a real type rather than a `Record<string, unknown>` shrug.
+interface FirestoreValue {
+  stringValue?: string;
+  integerValue?: string;
+  doubleValue?: number;
+  booleanValue?: boolean;
+  timestampValue?: string;
+  nullValue?: null;
+  arrayValue?: { values?: FirestoreValue[] };
+  mapValue?: { fields?: Record<string, FirestoreValue> };
+}
+interface FirestoreDocument {
+  name?: string;
+  fields?: Record<string, FirestoreValue>;
+}
+interface FirestoreListResponse {
+  documents?: FirestoreDocument[];
+}
+
+async function firebaseFetch(path: string, opts?: { method?: string; body?: unknown }): Promise<unknown> {
   if (!isConfigured()) throw new Error("firebase not configured");
   const baseUrl = `https://firestore.googleapis.com/v1/projects/${PROJECT_ID}/databases/(default)/documents`;
   const headers: Record<string, string> = {
@@ -37,27 +55,34 @@ async function firebaseFetch(
 }
 
 // Parse Firestore document format to plain object
-function parseFirestoreDoc(doc: any): Record<string, unknown> {
+function parseFirestoreDoc(doc: FirestoreDocument): Record<string, unknown> {
   if (!doc?.fields) return {};
   const result: Record<string, unknown> = {};
-  for (const [key, val] of Object.entries(doc.fields) as any[]) {
+  for (const [key, val] of Object.entries(doc.fields)) {
     if (val.stringValue !== undefined) result[key] = val.stringValue;
     else if (val.integerValue !== undefined) result[key] = Number(val.integerValue);
     else if (val.doubleValue !== undefined) result[key] = val.doubleValue;
     else if (val.booleanValue !== undefined) result[key] = val.booleanValue;
     else if (val.timestampValue !== undefined) result[key] = val.timestampValue;
-    else if (val.arrayValue?.values) result[key] = val.arrayValue.values.map((v: any) => v.stringValue ?? v.integerValue ?? v);
+    else if (val.arrayValue?.values) result[key] = val.arrayValue.values.map((v) => v.stringValue ?? v.integerValue ?? v);
     else if (val.mapValue?.fields) result[key] = parseFirestoreDoc({ fields: val.mapValue.fields });
     else if (val.nullValue !== undefined) result[key] = null;
   }
   return result;
 }
 
+interface FirebaseToolInput {
+  collection?: string;
+  documentId?: string;
+  limit?: number;
+  data?: Record<string, unknown>;
+}
+
 export async function runFirebaseTool(
   tool: ToolName,
   input: Json,
 ): Promise<{ ok: boolean; output?: Json; error?: string }> {
-  const i = input as any;
+  const i = input as unknown as FirebaseToolInput;
 
   try {
     switch (tool) {
@@ -86,13 +111,13 @@ export async function runFirebaseTool(
           return { ok: false, error: "firebase not configured" };
         }
         const docPath = `/${i.collection}/${i.documentId}`;
-        const doc = await firebaseFetch(docPath);
+        const doc = (await firebaseFetch(docPath)) as FirestoreDocument;
         return {
           ok: true,
           output: {
-            id: doc.name?.split("/").pop(),
+            id: doc.name?.split("/").pop() ?? null,
             data: parseFirestoreDoc(doc) as unknown as Json,
-            path: doc.name,
+            path: doc.name ?? null,
           },
         };
       }
@@ -104,15 +129,15 @@ export async function runFirebaseTool(
         }
         const pageSize = Math.min(i.limit || 20, 100);
         const listUrl = `/${i.collection}?pageSize=${pageSize}`;
-        const result = await firebaseFetch(listUrl);
-        const documents = (result.documents ?? []).map((doc: any) => ({
-          id: doc.name?.split("/").pop(),
+        const result = (await firebaseFetch(listUrl)) as FirestoreListResponse;
+        const documents = (result.documents ?? []).map((doc) => ({
+          id: doc.name?.split("/").pop() ?? null,
           data: parseFirestoreDoc(doc),
-          path: doc.name,
+          path: doc.name ?? null,
         }));
         return {
           ok: true,
-          output: { collection: i.collection, documents, count: documents.length },
+          output: { collection: i.collection ?? null, documents: documents as unknown as Json, count: documents.length },
         };
       }
 
@@ -122,21 +147,21 @@ export async function runFirebaseTool(
           return { ok: false, error: "firebase not configured" };
         }
         // Convert plain object to Firestore format
-        const fields: Record<string, any> = {};
+        const fields: Record<string, FirestoreValue> = {};
         for (const [key, val] of Object.entries(i.data || {})) {
           if (typeof val === "string") fields[key] = { stringValue: val };
-          else if (typeof val === "number") fields[key] = Number.isInteger(val) ? { integerValue: val } : { doubleValue: val };
+          else if (typeof val === "number") fields[key] = Number.isInteger(val) ? { integerValue: String(val) } : { doubleValue: val };
           else if (typeof val === "boolean") fields[key] = { booleanValue: val };
           else if (val === null) fields[key] = { nullValue: null };
         }
         const docPath = `/${i.collection}/${i.documentId}`;
-        const result = await firebaseFetch(docPath, {
+        const result = (await firebaseFetch(docPath, {
           method: "PATCH",
           body: { fields },
-        });
+        })) as FirestoreDocument;
         return {
           ok: true,
-          output: { id: i.documentId, path: result.name, written: true } as any,
+          output: { id: i.documentId ?? null, path: result.name ?? null, written: true },
         };
       }
 

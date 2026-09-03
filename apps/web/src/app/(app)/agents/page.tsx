@@ -1,5 +1,5 @@
 import { AGENT_REGISTRY } from "@domain/index";
-import { Panel, PanelHeader, Badge, StatusDot } from "@/components/ui";
+import { Panel, Badge, StatusDot } from "@/components/ui";
 
 const AGENT_ICONS: Record<string, string> = {
   commander: "⬡",

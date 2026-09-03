@@ -2,7 +2,6 @@
 
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { useEffect, useState } from "react";
 import { StatusDot } from "@/components/ui";
 
 const SECTIONS = [
@@ -28,13 +27,6 @@ const SECONDARY = [
 export function Nav() {
   const pathname = usePathname();
   const router = useRouter();
-  const [authed, setAuthed] = useState<boolean | null>(null);
-
-  useEffect(() => {
-    fetch("/api/v1/models", { method: "GET" })
-      .then((r) => setAuthed(r.status !== 401))
-      .catch(() => setAuthed(false));
-  }, []);
 
   if (pathname === "/login" || !pathname.startsWith("/")) return null;
   // Don't show on public pages

@@ -1,5 +1,11 @@
+import type { Json } from "@core/types";
 import type { AgentContext } from "./runtime";
 import { toolCtx } from "./runtime";
+
+interface TestRunOutput {
+  passed?: number;
+  failed?: number;
+}
 
 // QA Agent (spec §12). Runs the test suite and verifies requirements.
 export async function qa(ctx: AgentContext): Promise<string> {
@@ -9,12 +15,13 @@ export async function qa(ctx: AgentContext): Promise<string> {
   const testRes = await ctx.tools.execute("terminal.run", { command: "npm test" }, toolCtx(ctx, "qa"));
   const checksRes = await ctx.tools.execute("github.read_checks", { ref: "fix/branch" }, toolCtx(ctx, "qa"));
 
-  const passed = (testRes.output as any)?.passed ?? 0;
-  const failed = (testRes.output as any)?.failed ?? 0;
+  const testOutput = testRes.output as unknown as TestRunOutput;
+  const passed = testOutput?.passed ?? 0;
+  const failed = testOutput?.failed ?? 0;
 
   if (task) {
     task.status = failed === 0 ? "done" : "failed";
-    task.result = { tests: testRes.output, checks: checksRes.output } as any;
+    task.result = { tests: testRes.output, checks: checksRes.output } as unknown as Json;
     task.updatedAt = new Date().toISOString();
   }
   ctx.mission.testsPassed += passed;

@@ -28,7 +28,7 @@ export class MockAdapter implements ModelAdapter {
   }
 }
 
-function mockPlan(prompt: string): string[] {
+function mockPlan(_prompt: string): string[] {
   return [
     "Read the GitHub issue and reproduce the failure.",
     "Inspect the affected module and locate the root cause.",

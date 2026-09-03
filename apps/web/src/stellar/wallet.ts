@@ -2,6 +2,24 @@ import * as StellarSdk from "@stellar/stellar-sdk";
 
 // Stellar wallet helper. Reads the secret key ONLY server-side. Never returns
 // the secret to callers; only the public key, balance, and transaction history.
+//
+// Horizon's balance-line and operation-record types are real discriminated
+// unions (native vs issued-asset balances; payment vs manage_data vs ...
+// operations) that vary by a runtime `asset_type`/`type` tag. Narrowing
+// each read against the full union is more machinery than the two fields
+// this file actually touches justify — these two minimal interfaces
+// describe just those fields, cast through `unknown` rather than `any`.
+interface HorizonBalanceLike {
+  asset_type: string;
+  balance: string;
+}
+interface HorizonOperationLike {
+  amount?: string;
+  asset_type?: string;
+  asset_code?: string;
+  from?: string;
+  to?: string;
+}
 const SECRET = process.env.STELLAR_SECRET_KEY || "";
 const NETWORK = (process.env.STELLAR_NETWORK as "testnet" | "mainnet") || "testnet";
 const HORIZON = process.env.STELLAR_HORIZON_URL || (NETWORK === "testnet"
@@ -45,7 +63,7 @@ export async function walletState(): Promise<WalletState> {
   }
   try {
     const account = await server().loadAccount(pk);
-    const bal = account.balances.find((b: any) => b.asset_type === "native");
+    const bal = (account.balances as unknown as HorizonBalanceLike[]).find((b) => b.asset_type === "native");
     return {
       configured: true,
       network: NETWORK,
@@ -120,14 +138,15 @@ export async function transactionHistory(limit = 20): Promise<StellarTxHistoryIt
         .call();
 
       for (const op of ops.records) {
+        const opFields = op as unknown as HorizonOperationLike;
         results.push({
           id: op.id,
           hash: tx.hash,
           type: op.type,
-          amount: (op as any).amount,
-          asset: (op as any).asset_type === "native" ? "XLM" : (op as any).asset_code,
-          from: (op as any).from,
-          to: (op as any).to,
+          amount: opFields.amount,
+          asset: opFields.asset_type === "native" ? "XLM" : opFields.asset_code,
+          from: opFields.from,
+          to: opFields.to,
           memo: tx.memo,
           createdAt: tx.created_at,
           successful: tx.successful,

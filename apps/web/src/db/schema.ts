@@ -1,13 +1,11 @@
 import {
   pgTable,
-  uuid,
   text,
   jsonb,
   timestamp,
   integer,
   real,
   boolean,
-  primaryKey,
 } from "drizzle-orm/pg-core";
 import type { Json } from "@core/types";
 

@@ -1,7 +1,6 @@
 import type { Capability } from "@core/types";
 import type { AgentRole, AuditActor, AgentSlot, Mission } from "@domain/index";
 import { AGENT_REGISTRY } from "@domain/index";
-import { newAudit } from "@domain/index";
 import type { Repository } from "@db/repository";
 import type { ToolGateway, ToolContext } from "@tools/gateway";
 import type { ModelGateway } from "@ai/model-gateway";
@@ -33,12 +32,6 @@ export function toolCtx(ctx: AgentContext, actor: AuditActor): ToolContext {
       await ctx.repo.appendAudit(audit);
     },
   };
-}
-
-// Get capabilities for an agent slot (built-in or custom)
-function getCapabilitiesForSlot(slot: AgentSlot, extra: Capability[] = []): Capability[] {
-  const base = slot.defaultCapabilities || [];
-  return Array.from(new Set([...base, ...extra]));
 }
 
 // Execute a single agent step. Supports both built-in agents and custom agent slots.
@@ -98,17 +91,18 @@ async function customAgent(ctx: AgentContext, role: string): Promise<string> {
     if (!api || api.status !== "active") continue;
 
     try {
+      const actor: AuditActor = role in AGENT_REGISTRY ? (role as AgentRole) : "system";
       const result = await ctx.tools.execute(
         "custom_api.call",
         {
           apiId: api.id,
           params: { query: mission.description },
         },
-        toolCtx(ctx, role as any),
+        toolCtx(ctx, actor),
       );
 
       if (result.ok) {
-        const data = (result.output as any)?.data;
+        const data = (result.output as unknown as { data?: unknown })?.data;
         results.push(`[${api.name}] ${typeof data === "string" ? data : JSON.stringify(data).slice(0, 200)}`);
       } else {
         results.push(`[${api.name}] Error: ${result.error}`);

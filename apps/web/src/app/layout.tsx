@@ -1,10 +1,18 @@
 import type { Metadata } from "next";
+import { Inter, JetBrains_Mono } from "next/font/google";
 import "./globals.css";
+
+// next/font self-hosts and optimizes these instead of a manual <link> tag
+// (which only loads for whichever page renders it first — Next's own
+// no-page-custom-font lint rule flags exactly this). variable matches the
+// --font-ui/--font-mono custom properties globals.css already expects.
+const inter = Inter({ subsets: ["latin"], variable: "--font-ui" });
+const jetbrainsMono = JetBrains_Mono({ subsets: ["latin"], variable: "--font-mono" });
 
 export const metadata: Metadata = {
   title: "Arena OS — AI Agent Mission Control",
   description:
-    "Personal AI operating system. Multi-model orchestration, autonomous agents, tool integrations, Stellar payments.",
+    "Personal AI operating system. Multi-model orchestration, autonomous agents, tool integrations, BMONI-settled x402 payments.",
 };
 
 export default function RootLayout({
@@ -13,19 +21,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="en">
-      <head>
-        <link rel="preconnect" href="https://fonts.googleapis.com" />
-        <link
-          rel="preconnect"
-          href="https://fonts.gstatic.com"
-          crossOrigin="anonymous"
-        />
-        <link
-          href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap"
-          rel="stylesheet"
-        />
-      </head>
+    <html lang="en" className={`${inter.variable} ${jetbrainsMono.variable}`}>
       <body className="min-h-screen bg-arena-bg">{children}</body>
     </html>
   );

@@ -1,9 +1,16 @@
+import type { Json } from "@core/types";
 import type { AgentContext } from "./runtime";
 import { toolCtx } from "./runtime";
 import { sha256Hex, canonicalMissionDigest } from "@stellar/hash";
 import { walletState, confirmTransaction } from "@stellar/wallet";
-import { shortId, nowIso } from "@core/ids";
+import { nowIso } from "@core/ids";
 import type { Receipt } from "@domain/index";
+
+interface AnchorReceiptOutput {
+  anchorTx?: string;
+  mock?: boolean;
+  submitter?: string;
+}
 
 // Stellar Agent (spec §12, §28). Inspects wallet state, produces a canonical
 // receipt, anchors it on Stellar/Soroban, verifies the on-chain confirmation,
@@ -53,8 +60,9 @@ export async function stellarAgent(ctx: AgentContext): Promise<string> {
     { digest: receiptHash, missionId: ctx.mission.id },
     toolCtx(ctx, "stellar"),
   );
-  const anchorTx = (anchor.output as any)?.anchorTx;
-  const anchorMock = (anchor.output as any)?.mock;
+  const anchorOutput = anchor.output as unknown as AnchorReceiptOutput;
+  const anchorTx = anchorOutput?.anchorTx;
+  const anchorMock = anchorOutput?.mock;
 
   // Step 5: If real anchor, verify it on-chain
   let anchorConfirmed = false;
@@ -75,11 +83,11 @@ export async function stellarAgent(ctx: AgentContext): Promise<string> {
   const receipt: Receipt = {
     hash: receiptHash,
     missionDigest: digest,
-    submitter: (anchor.output as any)?.submitter ?? "unknown",
+    submitter: anchorOutput?.submitter ?? "unknown",
     timestamp: nowIso(),
     status: anchorConfirmed ? "verified" : "pending",
     anchorTx,
-  } as any;
+  };
   await ctx.repo.saveReceipt(receipt);
 
   // Step 7: Update task and mission
@@ -87,11 +95,11 @@ export async function stellarAgent(ctx: AgentContext): Promise<string> {
     task.status = "done";
     task.result = {
       receiptHash,
-      anchorTx,
+      anchorTx: anchorTx ?? null,
       anchorConfirmed,
       verifiedPayments,
-      walletBalance: wallet.balanceXlm,
-    } as any;
+      walletBalance: wallet.balanceXlm ?? null,
+    } as unknown as Json;
     task.updatedAt = nowIso();
   }
 

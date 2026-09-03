@@ -3,8 +3,7 @@ import { getSession } from "@security/session";
 import { getToolGateway } from "@tools/gateway";
 import { TOOL_REGISTRY } from "@tools/registry";
 import { getRepository } from "@db/index";
-import { shortId, nowIso } from "@core/ids";
-import { newAudit } from "@domain/index";
+import type { ToolName } from "@domain/index";
 
 // POST /api/v1/tools/execute  { tool, input, missionId? }
 // Manual tool execution through the gateway (permission-checked + audited).
@@ -12,7 +11,7 @@ export async function POST(req: NextRequest) {
   const session = await getSession();
   if (!session) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
   const body = await req.json().catch(() => ({}));
-  const tool = String(body.tool || "") as any;
+  const tool = String(body.tool || "") as ToolName;
   const spec = TOOL_REGISTRY[tool as keyof typeof TOOL_REGISTRY];
   if (!spec) return NextResponse.json({ error: "unknown tool" }, { status: 400 });
 

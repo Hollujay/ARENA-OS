@@ -78,18 +78,15 @@ importers:
       '@arena-os/security':
         specifier: workspace:*
         version: link:../../packages/security
-      '@arena-os/stellar':
-        specifier: workspace:*
-        version: link:../../packages/stellar
-      '@arena-os/x402':
-        specifier: workspace:*
-        version: link:../../packages/x402
       '@stellar/stellar-sdk':
         specifier: ^12.0.0
         version: 12.3.0
       drizzle-orm:
         specifier: ^0.33.0
         version: 0.33.0(@types/better-sqlite3@7.6.13)(@types/react@19.2.18)(better-sqlite3@11.10.0)(postgres@3.4.9)(react@19.0.0)
+      ethers:
+        specifier: ^6.13.4
+        version: 6.17.0
       framer-motion:
         specifier: ^11.3.0
         version: 11.18.2(react-dom@19.0.0(react@19.0.0))(react@19.0.0)
@@ -212,6 +209,9 @@ importers:
 
   packages/model-gateway:
     dependencies:
+      '@arena-os/ai-core':
+        specifier: workspace:*
+        version: link:../ai-core
       '@arena-os/security':
         specifier: workspace:*
         version: link:../security
@@ -257,6 +257,9 @@ importers:
 
   packages/security:
     devDependencies:
+      '@types/node':
+        specifier: ^20.14.0
+        version: 20.19.43
       typescript:
         specifier: ^5.5.0
         version: 5.9.3

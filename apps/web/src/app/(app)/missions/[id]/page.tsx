@@ -7,6 +7,12 @@ import type { MissionStatus } from "@domain/index";
 
 export const dynamic = "force-dynamic";
 
+interface PendingPaymentDisplay {
+  service: string;
+  purpose: string;
+  amountXlm: number;
+}
+
 const PHASE_ORDER: { key: MissionStatus; label: string; icon: string }[] = [
   { key: "planning", label: "PLANNING", icon: "◇" },
   { key: "research", label: "RESEARCH", icon: "◎" },
@@ -31,7 +37,7 @@ export default async function MissionDetail({
   const mission = await repo.getMission(id);
   if (!mission) notFound();
 
-  const pending = mission.pendingPayment as any;
+  const pending = mission.pendingPayment as unknown as PendingPaymentDisplay | null;
   const tasks = mission.tasks ?? [];
   const currentIdx = phaseIndex(mission.status);
   const isTerminal = ["completed", "verified", "failed"].includes(
@@ -141,7 +147,7 @@ export default async function MissionDetail({
               <div className="flex justify-between">
                 <span className="text-arena-muted">AMOUNT</span>
                 <span className="text-arena-green">
-                  {pending.amountXlm} XLM
+                  {pending.amountXlm} NGN
                 </span>
               </div>
             </div>
@@ -194,7 +200,7 @@ export default async function MissionDetail({
               <PanelHeader title="COST BREAKDOWN" />
               <div className="p-3 space-y-2">
                 <CostRow label="AI COST" value={`$${mission.costUsd.toFixed(2)}`} />
-                <CostRow label="STELLAR" value={`${mission.paymentsXlm.toFixed(2)} XLM`} />
+                <CostRow label="STELLAR" value={`${mission.paymentsXlm.toFixed(2)} NGN`} />
                 <CostRow label="FILES" value={`${mission.filesChanged}`} />
                 <CostRow
                   label="TESTS"
@@ -314,7 +320,7 @@ function StepRow({
   status: string;
   agent?: string;
 }) {
-  const tone =
+  const tone: "green" | "red" | "amber" | "muted" =
     status === "done" || status === "success"
       ? "green"
       : status === "failed"
@@ -324,7 +330,7 @@ function StepRow({
           : "muted";
   return (
     <div className="flex items-center gap-3 px-4 py-2.5">
-      <StatusDot tone={tone as any} pulse={status === "running"} />
+      <StatusDot tone={tone} pulse={status === "running"} />
       <div className="flex-1 min-w-0">
         <div className="text-[11px] text-arena-text truncate">{title}</div>
         <div className="font-mono text-[9px] text-arena-muted">
@@ -332,7 +338,7 @@ function StepRow({
           {agent ? ` · ${agent}` : ""}
         </div>
       </div>
-      <Badge tone={tone as any}>{status}</Badge>
+      <Badge tone={tone}>{status}</Badge>
     </div>
   );
 }

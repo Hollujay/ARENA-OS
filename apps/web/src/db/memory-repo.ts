@@ -148,13 +148,13 @@ class MemoryRepository implements Repository {
       missionId: sampleMission.id,
       service: "Repo Analyzer API",
       purpose: "Repository analysis",
-      amountXlm: 0.2,
-      asset: "XLM",
+      amountXlm: 200, // NGN, despite the field name — see @bmoni/x402's docstring
+      asset: "CNGN",
       network: "testnet",
-      wallet: "GABCDEFG...",
-      recipient: "GRECIPENT...",
+      wallet: "0x0000000000000000000000000000000000dEaD",
+      recipient: "0x0000000000000000000000000000000000bEEf",
       status: "settled",
-      txHash: "tx_demo_001",
+      txHash: "proposal_demo_001",
       receiptHash: sampleMission.receiptHash,
       createdAt: nowIso(),
       settledAt: nowIso(),
@@ -417,7 +417,7 @@ class MemoryRepository implements Repository {
     for (const p of this.payments) {
       if (filter?.mission && p.missionId !== filter.mission) continue;
       if (filter?.payment === false) continue;
-      items.push({ id: p.id, at: p.createdAt, kind: "payment", actor: "stellar", action: `payment:${p.status}`, missionId: p.missionId, detail: p });
+      items.push({ id: p.id, at: p.createdAt, kind: "payment", actor: "bmoni", action: `payment:${p.status}`, missionId: p.missionId, detail: p });
     }
     for (const s of this.stellarTx) {
       if (filter?.mission && s.missionId !== filter.mission) continue;

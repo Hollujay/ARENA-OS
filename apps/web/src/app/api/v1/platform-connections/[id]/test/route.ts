@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { getRepository } from "@db/index";
 import { nowIso } from "@core/ids";
+import type { Json } from "@core/types";
 import { testVercelConnection } from "@tools/vercel";
 import { testRenderConnection } from "@tools/render";
 
@@ -121,7 +122,7 @@ export async function POST(_req: Request, { params }: { params: Promise<{ id: st
     at: nowIso(),
     actor: "user",
     action: `platform.test.${conn.platform}`,
-    detail: { platform: conn.platform, ok: result.ok, error: result.error } as any,
+    detail: { platform: conn.platform, ok: result.ok, error: result.error ?? null } as unknown as Json,
   });
 
   return NextResponse.json(result);

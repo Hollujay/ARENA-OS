@@ -103,7 +103,7 @@ export function ApiKeyManager({ apiKeys: initialKeys, workspaceId }: Props) {
         <div className="px-5 py-3 border-b border-arena-border bg-arena-green/5">
           <div className="flex items-center justify-between">
             <div>
-              <div className="text-xs text-arena-green font-medium">Key created — copy it now, it won't be shown again:</div>
+              <div className="text-xs text-arena-green font-medium">Key created — copy it now, it won&apos;t be shown again:</div>
               <code className="mt-1 block text-sm font-mono text-arena-text break-all">{createdKey}</code>
             </div>
             <button onClick={() => setCreatedKey(null)} className="text-xs text-arena-muted hover:text-arena-text">

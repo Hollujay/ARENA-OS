@@ -18,9 +18,6 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
   const assignments = await repo.listAgentApiAssignments();
   const myAssignments = assignments.filter((a) => a.customApiId === id);
 
-  // Get audit events for this API
-  const audit = await repo.listAudit();
-
   return NextResponse.json({ customApi: api, endpoints, assignments: myAssignments });
 }
 

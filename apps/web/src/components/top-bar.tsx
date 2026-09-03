@@ -39,7 +39,7 @@ export function TopBar() {
           <span className="text-arena-secondary">SYSTEM ACTIVE</span>
         </div>
         <div className="text-arena-muted">
-          <span className="text-arena-secondary">XLM</span>{" "}
+          <span className="text-arena-secondary">NGN</span>{" "}
           <span className="text-arena-text">124.50</span>
         </div>
       </div>

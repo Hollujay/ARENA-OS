@@ -1,6 +1,7 @@
 import { getRepository } from "@db/index";
-import { Panel, PanelHeader, Badge, StatusDot, PageHeader, Stat } from "@/components/ui";
+import { PageHeader, Stat } from "@/components/ui";
 import { CustomApisManager } from "@/components/custom-apis-manager";
+import type { CustomApi } from "@domain/index";
 
 export const dynamic = "force-dynamic";
 
@@ -34,8 +35,8 @@ export default async function CustomApisPage() {
     apis: assignments
       .filter((a) => a.agentId === slot.id)
       .map((a) => apis.find((api) => api.id === a.customApiId))
-      .filter(Boolean)
-      .map((api: any) => ({ id: api.id, name: api.name })),
+      .filter((api): api is CustomApi => api !== undefined)
+      .map((api) => ({ id: api.id, name: api.name })),
   }));
 
   const activeApis = apis.filter((a) => a.status === "active").length;

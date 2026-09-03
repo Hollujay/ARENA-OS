@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import type { PlatformConfig, ConnectField } from "@/lib/platform-config";
+import type { ConnectField } from "@/lib/platform-config";
 import { getPlatformConfig } from "@/lib/platform-config";
 
 interface Props {

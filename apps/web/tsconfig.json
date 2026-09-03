@@ -22,6 +22,7 @@
       "@agents/*": ["./src/agents/*"],
       "@tools/*": ["./src/tools/*"],
       "@stellar/*": ["./src/stellar/*"],
+      "@bmoni/*": ["./src/bmoni/*"],
       "@mission/*": ["./src/mission/*"],
       "@security/*": ["./src/security/*"],
       "@db/*": ["./src/db/*"],

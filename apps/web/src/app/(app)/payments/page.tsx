@@ -20,7 +20,7 @@ export default async function PaymentsPage() {
 
         {/* Stats */}
         <div className="grid grid-cols-4 gap-3">
-          <StatBlock label="TOTAL SPENT" value={`${total.toFixed(2)} XLM`} tone="green" />
+          <StatBlock label="TOTAL SPENT" value={`${total.toFixed(2)} NGN`} tone="green" />
           <StatBlock label="TRANSACTIONS" value={`${payments.length}`} />
           <StatBlock label="POLICY" value="ACTIVE" tone="green" />
           <StatBlock label="PENDING" value={`${payments.filter(p => p.status === "pending").length}`} />

@@ -7,7 +7,7 @@ import type { ToolName } from "@domain/index";
 const URL = process.env.SUPABASE_URL || "";
 const KEY = process.env.SUPABASE_SERVICE_KEY || "";
 
-export async function runSupabaseTool(tool: ToolName, input: Json): Promise<{ ok: boolean; output?: Json; error?: string }> {
+export async function runSupabaseTool(_tool: ToolName, _input: Json): Promise<{ ok: boolean; output?: Json; error?: string }> {
   if (!URL || !KEY) {
     return { ok: false, error: "supabase not configured", output: { configured: false } };
   }

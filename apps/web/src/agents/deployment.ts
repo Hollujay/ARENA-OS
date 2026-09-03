@@ -12,7 +12,7 @@ export async function deployment(ctx: AgentContext): Promise<string> {
     { project: ctx.mission.projectId ?? "arena" },
     toolCtx(ctx, "deployment"),
   );
-  const url = (res.output as any)?.deploymentUrl;
+  const url = (res.output as unknown as { deploymentUrl?: string })?.deploymentUrl;
 
   if (task) {
     task.status = res.ok ? "done" : "failed";

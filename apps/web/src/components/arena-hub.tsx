@@ -5,13 +5,6 @@ import type { PlatformConnection } from "@domain/index";
 import { PlatformConnectModal } from "@/components/platform-connect-modal";
 import { PLATFORM_CONFIGS } from "@/lib/platform-config";
 
-const STATUS_TONE: Record<string, "green" | "red" | "amber" | "muted"> = {
-  connected: "green",
-  disconnected: "muted",
-  error: "red",
-  token_expired: "amber",
-};
-
 const CATEGORY_ORDER = [
   { label: "AI PROVIDERS", platforms: ["openai", "gemini", "claude"] },
   { label: "SOURCE CONTROL", platforms: ["github"] },
@@ -185,7 +178,7 @@ export function ArenaHub({
                           {(Array.isArray(conn.scopes)
                             ? conn.scopes.slice(0, 3)
                             : []
-                          ).map((s: any, i: number) => (
+                          ).map((s: string | { name?: string }, i: number) => (
                             <span
                               key={i}
                               className="font-mono text-[8px] text-arena-muted"

@@ -1,21 +1,33 @@
 import type { Json } from "@core/types";
-import type { ToolName } from "@domain/index";
+import type { ToolName, CustomApi, Payment } from "@domain/index";
 import type { ToolContext } from "./gateway";
 import { getRepository } from "@db/index";
-import { defaultPolicy, evaluatePayment, settlePayment } from "@stellar/x402";
-import { publicKey } from "@stellar/wallet";
+import { defaultPolicy, evaluatePayment, settlePayment } from "@bmoni/x402";
+import { operatorAddress } from "@bmoni/wallet";
 import { shortId, nowIso } from "@core/ids";
 
 // Custom API adapter. Every call goes through the Tool Gateway pipeline:
 //   permission check → credential resolution → execution → result normalization → audit
-// If the API returns HTTP 402, route into the x402 payment flow.
+// If the API returns HTTP 402, route into the x402 payment flow (settles via
+// BMONI — see @bmoni/x402 — previously Stellar).
+
+interface CustomApiToolInput {
+  apiId?: string;
+  customApiId?: string;
+  endpointId?: string;
+  params?: Record<string, unknown>;
+  method?: string;
+  path?: string;
+}
+
+const DEMO_RECIPIENT = process.env.ARENA_PAYMENT_DEMO_RECIPIENT || "0x000000000000000000000000000000000000dEaD";
 
 export async function runCustomApiTool(
   _tool: ToolName,
   input: Json,
   ctx: ToolContext,
 ): Promise<{ ok: boolean; output?: Json; error?: string }> {
-  const i = input as any;
+  const i = input as unknown as CustomApiToolInput;
   const apiId = i.apiId || i.customApiId;
   const endpointId = i.endpointId;
   const params = i.params || {};
@@ -108,7 +120,7 @@ export async function runCustomApiTool(
             apiId: api.id,
             apiName: api.name,
             endpoint: endpoint.name,
-            paymentRequired: paymentRequired.details,
+            paymentRequired: paymentRequired.details as unknown as Json,
           },
         };
       }
@@ -152,7 +164,7 @@ export async function runCustomApiTool(
 
 // Resolve credentials for a custom API — reads from env vars based on
 // the credential_reference pointer. Never exposes raw secrets.
-async function resolveCustomApiCredential(api: any): Promise<Record<string, string>> {
+async function resolveCustomApiCredential(api: CustomApi): Promise<Record<string, string>> {
   const credRef = api.credentialReference;
   if (!credRef) return {};
 
@@ -185,7 +197,7 @@ async function resolveCustomApiCredential(api: any): Promise<Record<string, stri
 }
 
 // Build URL with path and query params
-function buildUrl(baseUrl: string, path: string, params: Record<string, any>): string {
+function buildUrl(baseUrl: string, path: string, params: Record<string, unknown>): string {
   const base = baseUrl.replace(/\/$/, "");
   const p = path.startsWith("/") ? path : `/${path}`;
 
@@ -201,21 +213,34 @@ function buildUrl(baseUrl: string, path: string, params: Record<string, any>): s
   return queryParts.length > 0 ? `${url}?${queryParts.join("&")}` : url;
 }
 
+interface X402PaymentDetails {
+  amount?: number;
+  amountXlm?: number;
+  recipient?: string;
+}
+
+interface X402ApprovalDetails {
+  service: string;
+  amountXlm: number;
+  recipient: string;
+  network: "testnet" | "mainnet";
+}
+
 // Handle HTTP 402 response — route into x402 payment flow
 async function handle402Response(
   res: Response,
-  api: any,
+  api: CustomApi,
   ctx: ToolContext,
-): Promise<{ settled: boolean; needsApproval: boolean; reason: string; details?: any }> {
-  let paymentDetails: any;
+): Promise<{ settled: boolean; needsApproval: boolean; reason: string; details?: X402ApprovalDetails }> {
+  let paymentDetails: X402PaymentDetails;
   try {
-    paymentDetails = await res.json();
+    paymentDetails = (await res.json()) as X402PaymentDetails;
   } catch {
     return { settled: false, needsApproval: false, reason: "could not parse 402 response" };
   }
 
   const amountXlm = Number(paymentDetails.amount || paymentDetails.amountXlm || 0);
-  const recipient = paymentDetails.recipient || "GRECIPENT";
+  const recipient = paymentDetails.recipient || DEMO_RECIPIENT;
   const service = api.name;
 
   if (amountXlm <= 0) {
@@ -228,7 +253,7 @@ async function handle402Response(
     service,
     recipient,
     amountXlm,
-    missionBudgetRemainingXlm: ctx.missionId ? 5 : undefined, // Default budget
+    missionBudgetRemainingXlm: ctx.missionId ? 500 : undefined, // Default budget, NGN scale
   });
 
   if (decision.decision === "denied") {
@@ -250,13 +275,12 @@ async function handle402Response(
     recipient,
     amountXlm,
     network: policy.network,
-    wallet: publicKey(),
+    wallet: operatorAddress(),
   });
 
   if (settled.settled) {
     // Record the payment
-    const { newAudit } = await import("@domain/index");
-    const payment = {
+    const payment: Payment = {
       id: shortId("PAY"),
       missionId: ctx.missionId,
       service,
@@ -264,14 +288,14 @@ async function handle402Response(
       amountXlm,
       asset: policy.asset,
       network: policy.network,
-      wallet: publicKey(),
+      wallet: operatorAddress(),
       recipient,
       status: "settled" as const,
       txHash: settled.txHash,
       createdAt: nowIso(),
       settledAt: nowIso(),
     };
-    await getRepository().savePayment(payment as any);
+    await getRepository().savePayment(payment);
   }
 
   return {

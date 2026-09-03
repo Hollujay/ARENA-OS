@@ -48,7 +48,9 @@ export class ModelGateway {
         // try next provider in ranking (failover)
       }
     }
-    // Final safety net: mock always works offline.
+    // Final safety net: mock always works offline. Was silently swallowing
+    // lastError before — worth knowing why every real provider failed.
+    if (lastError) console.warn(`[model-gateway] all providers failed, falling back to mock. Last error: ${lastError}`);
     return this.adapters.mock.complete(req);
   }
 
